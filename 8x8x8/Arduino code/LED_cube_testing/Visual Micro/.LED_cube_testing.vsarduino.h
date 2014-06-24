@@ -16,14 +16,14 @@ extern "C" void __cxa_pure_virtual() {;}
 //
 //
 void latchData(int multiplex, int Data);
-void latchLayer(int Data);
+volatile void latchLayer(int Data, bool level);
 void setMultiplexer(int pos);
 void setData(int data);
-void setLayer(int data);
+void setLayer(bool data, int Port);
 void patternUpdateTimer(int reload);
 void layerUpdateTimer(int reload);
 int cubeRowToInt(int layer, int Row);
 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\variants\mega\pins_arduino.h" 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\cores\arduino\arduino.h"
-#include "E:\Dropbox\Projects\LED Cube\8x8x8\Arduino code\LED_cube_testing\LED_cube_testing.ino"
+#include "E:\Dropbox\Projects\LED_Cube\8x8x8\Arduino code\LED_cube_testing\LED_cube_testing.ino"

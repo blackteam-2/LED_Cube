@@ -6,19 +6,20 @@ J McKenna
 
 
 Software
-Program Version: 0.1
-Last Update: 20/06/2014
+Program Version: 0.2
+Last Update: 24/06/2014
 
 
 Revision Notes:
-0.1-Created program
+0.1 - Created program
+0.2 - Implemented Layer update timer
 
 
 Hardware
 Arduino Board: Mega R3
 
 
-  TOP VEIW (Data)
+      TOP VEIW (Data)
   
   00-01-02-03-04-05-06-07
   08-09-10-11-12-13-14-15
@@ -42,13 +43,13 @@ Arduino Board: Mega R3
   ----0----(A)----
 
 
-  Cord sys
+   Cord sys
   
-  Y
-  |
-  :--X
- /
-Z
+	  Y
+	  |
+	  :--X
+	 /
+	Z
 
 */
 
@@ -69,19 +70,20 @@ const int B = 4;
 const int C = 3;
 const int E = 6;
 
-const int RD0 = 37;
-const int RD1 = 31;
-const int RD2 = 29;
-const int RD3 = 22;
-const int RD4 = 25;
-const int RD5 = 27;
-const int RD6 = 33;
-const int RD7 = 35;
-const int RE = 39;
+const int RD0 = 23;
+const int RD1 = 29;
+const int RD2 = 31;
+const int RD3 = 37;
+const int RD4 = 35;
+const int RD5 = 33;
+const int RD6 = 27;
+const int RD7 = 25;
+const int RE = 41;
 
-//Cube array [Layer][Row][Bit]|[Y][X][Z]
+//Cube array [Layer][Row][Bit] - [Y][X][Z]
 boolean cube[8][8][8] = {0}; 
-int layer = 0;
+volatile int layer = 1;
+volatile int prevLayer = 0;
 
 //General Use Variables
 int i = 0;
@@ -98,43 +100,51 @@ int temp = 0;
 //
 void setup()
 {
-  //set Pin modes
-  pinMode(D0, OUTPUT);
-  pinMode(D1, OUTPUT);
-  pinMode(D2, OUTPUT);
-  pinMode(D3, OUTPUT);
-  pinMode(D4, OUTPUT);
-  pinMode(D5, OUTPUT);
-  pinMode(D6, OUTPUT);
-  pinMode(D7, OUTPUT);
+	//set Pin modes
+	pinMode(D0, OUTPUT);
+	pinMode(D1, OUTPUT);
+	pinMode(D2, OUTPUT);
+	pinMode(D3, OUTPUT);
+	pinMode(D4, OUTPUT);
+	pinMode(D5, OUTPUT);
+	pinMode(D6, OUTPUT);
+	pinMode(D7, OUTPUT);
   
-  pinMode(RD0, OUTPUT);
-  pinMode(RD1, OUTPUT);
-  pinMode(RD2, OUTPUT);
-  pinMode(RD3, OUTPUT);
-  pinMode(RD4, OUTPUT);
-  pinMode(RD5, OUTPUT);
-  pinMode(RD6, OUTPUT);
-  pinMode(RD7, OUTPUT);
+	pinMode(RD0, OUTPUT);
+	pinMode(RD1, OUTPUT);
+	pinMode(RD2, OUTPUT);
+	pinMode(RD3, OUTPUT);
+	pinMode(RD4, OUTPUT);
+	pinMode(RD5, OUTPUT);
+	pinMode(RD6, OUTPUT);
+	pinMode(RD7, OUTPUT);
   
-  pinMode(A, OUTPUT);
-  pinMode(B, OUTPUT);
-  pinMode(C, OUTPUT);
-  pinMode(E, OUTPUT);
+	pinMode(A, OUTPUT);
+	pinMode(B, OUTPUT);
+	pinMode(C, OUTPUT);
+	pinMode(E, OUTPUT);
   
-  pinMode(A7, INPUT);
+	pinMode(A7, INPUT);
   
-  //Testing
-  pinMode(LED, OUTPUT);
+	//Testing
+	pinMode(LED, OUTPUT);
   
-  //
-  //15625 - 1Hz
-  //781 - 20Hz
-  //500 - 31.25Hz
-  layerUpdateTimer(15625);
+	//
+	//62500 - 0.25Hz
+	//15625 - 1Hz
+	//3906 - 4Hz
+	//781 - 20Hz
+	//500 - 31.25Hz
+	layerUpdateTimer(3906);
   
-  //Debugging
-  Serial.begin(9600);
+	//turn all the cube layers off
+	latchLayer(8, true);
+  
+	//Debugging
+	Serial.begin(9600);
+	
+	//Enable Global interrupts 
+	sei();
 }
 
 
@@ -145,21 +155,22 @@ void setup()
 //
 void loop()
 {
-  //Serial
-  if(Serial.available() > 0)
-  {
-    i = Serial.read();
-    if((i >= 0) || (i <= 9))
-    {
-      digitalWrite(LED, HIGH);
+	//Serial
+	if(Serial.available() > 0)
+	{
+		i = Serial.read();
+		if((i >= 0) || (i <= 9))
+		{
+			digitalWrite(LED, HIGH);
 	  
-      //latchData(1,i-48);
-	  latchData(i-48,i-48);
-      Serial.print(i);
-    }
-    delay(500);
-    digitalWrite(LED, LOW);
-  }
+			//latchData(1,i-48);
+			//latchData(i-48,i-48);
+			latchLayer(i-48, false);
+			Serial.print(i-48);
+		}
+		delay(500);
+		digitalWrite(LED, LOW);
+	}
   
   
   
@@ -173,22 +184,17 @@ void loop()
 //
 void latchData(int multiplex, int Data)
 {
- digitalWrite(E, HIGH);
- delay(1);
- setData(Data);
- delay(1);
- setMultiplexer(multiplex);
- delay(1000);
- digitalWrite(E,LOW);
+	digitalWrite(E, HIGH);
+	setData(Data);
+	setMultiplexer(multiplex);
+	digitalWrite(E,LOW);
 }
 
 //
-void latchLayer(int Data)
+volatile void latchLayer(int Data, bool level)
 {
 	digitalWrite(RE, HIGH);
-	delay(1);
-	latchLayer(Data);
-	delay(1);
+	setLayer(level, Data);
 	digitalWrite(RE, LOW);
 }
 
@@ -200,35 +206,146 @@ void latchLayer(int Data)
 //
 void setMultiplexer(int pos)
 {
-  digitalWrite(A, HIGH && (pos & 0x01));
-  digitalWrite(B, HIGH && (pos & 0x02));
-  digitalWrite(C, HIGH && (pos & 0x04));
+	digitalWrite(A, HIGH && (pos & 0x01));
+	digitalWrite(B, HIGH && (pos & 0x02));
+	digitalWrite(C, HIGH && (pos & 0x04));
 }
 
 //
 void setData(int data)
 {
-  digitalWrite(D0, HIGH && (data & 0x01));
-  digitalWrite(D1, HIGH && (data & 0x02));
-  digitalWrite(D2, HIGH && (data & 0x04));
-  digitalWrite(D3, HIGH && (data & 0x08));
-  digitalWrite(D4, HIGH && (data & 0x10));
-  digitalWrite(D5, HIGH && (data & 0x20));
-  digitalWrite(D6, HIGH && (data & 0x40));
-  digitalWrite(D7, HIGH && (data & 0x80));
+	digitalWrite(D0, HIGH && (data & 0x01));
+	digitalWrite(D1, HIGH && (data & 0x02));
+	digitalWrite(D2, HIGH && (data & 0x04));
+	digitalWrite(D3, HIGH && (data & 0x08));
+	digitalWrite(D4, HIGH && (data & 0x10));
+	digitalWrite(D5, HIGH && (data & 0x20));
+	digitalWrite(D6, HIGH && (data & 0x40));
+	digitalWrite(D7, HIGH && (data & 0x80));
 }
 
 //
-void setLayer(int data)
+void setLayer(bool data, int Port)
 {
-	digitalWrite(RD0, HIGH && (data & 0x01));
-	digitalWrite(RD1, HIGH && (data & 0x02));
-	digitalWrite(RD2, HIGH && (data & 0x04));
-	digitalWrite(RD3, HIGH && (data & 0x08));
-	digitalWrite(RD4, HIGH && (data & 0x10));
-	digitalWrite(RD5, HIGH && (data & 0x20));
-	digitalWrite(RD6, HIGH && (data & 0x40));
-	digitalWrite(RD7, HIGH && (data & 0x80));
+	switch(Port)
+	{
+		case 0:
+			if (data)
+			{
+				digitalWrite(RD0, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD0, LOW);
+			}
+		break;
+		
+		case 1:
+			if (data)
+			{
+				digitalWrite(RD1, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD1, LOW);
+			}
+		break;
+		
+		case 2:
+			if (data)
+			{
+				digitalWrite(RD2, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD2, LOW);
+			}
+		break;
+		
+		case 3:
+			if (data)
+			{
+				digitalWrite(RD3, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD3, LOW);
+			}
+		break;
+		
+		case 4:
+			if (data)
+			{
+				digitalWrite(RD4, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD4, LOW);
+			}
+		break;
+		
+		case 5:
+			if (data)
+			{
+				digitalWrite(RD5, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD5, LOW);
+			}
+		break;
+		
+		case 6:
+			if (data)
+			{
+				digitalWrite(RD6, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD6, LOW);
+			}
+		break;
+		
+		case 7:
+			if (data)
+			{
+				digitalWrite(RD7, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD7, LOW);
+			}
+		break;
+		
+		case 8:
+			if (data)
+			{
+				digitalWrite(RD0, HIGH);
+				digitalWrite(RD1, HIGH);
+				digitalWrite(RD2, HIGH);
+				digitalWrite(RD3, HIGH);
+				digitalWrite(RD4, HIGH);
+				digitalWrite(RD5, HIGH);
+				digitalWrite(RD6, HIGH);
+				digitalWrite(RD7, HIGH);
+			}
+			else
+			{
+				digitalWrite(RD0, LOW);
+				digitalWrite(RD1, LOW);
+				digitalWrite(RD2, LOW);
+				digitalWrite(RD3, LOW);
+				digitalWrite(RD4, LOW);
+				digitalWrite(RD5, LOW);
+				digitalWrite(RD6, LOW);
+				digitalWrite(RD7, LOW);
+			}
+		break;
+		
+		default:
+			//Do nothing
+		break;
+	}
 }
 
 
@@ -272,19 +389,32 @@ void layerUpdateTimer(int reload)
 		return;
 	}
 	
-	TCCR5B |= (WGM52);
+	TCCR5A = 0x00;
+	TCCR5B = 0x00;
+	
+	TCCR5B |= (1 << WGM52);
 	OCR5A = reload;
-	TIMSK5 |= (OCIE5A);
-	TCCR5B |= (CS50) | (1 << CS52);//clk/2014
+	TIMSK5 |= (1 << OCIE5A);
+	TCCR5B |= (1 << CS50) | (1 << CS52);//clk/2014
 	
 }
 
 //
 ISR(TIMER5_COMPA_vect)
 {
-	//turn prev layer off
+	//turn previous layer off
+	prevLayer = layer;
+	latchLayer(prevLayer, true);
 	
-	
+	//
+	if (layer == 7)
+	{
+		layer = 0;
+	}
+	else
+	{
+		layer++;
+	}
 	
 	//set data latches 
 	for (i = 0 ; i < 8 ; i++)
@@ -294,15 +424,20 @@ ISR(TIMER5_COMPA_vect)
 	}
 	
 	
-	//turn layer on
-	
-	
-	
+	//turn current layer on
+	latchLayer(layer, false);
 }
 
 int cubeRowToInt(int layer, int Row)
 {
 	temp = 0;
-	if (cube[]){}
+	if (cube[layer][Row][0]){temp = temp + 1;}
+	if (cube[layer][Row][1]){temp = temp + 2;}
+	if (cube[layer][Row][2]){temp = temp + 4;}
+	if (cube[layer][Row][3]){temp = temp + 8;}
+	if (cube[layer][Row][4]){temp = temp + 16;}
+	if (cube[layer][Row][5]){temp = temp + 32;}
+	if (cube[layer][Row][6]){temp = temp + 64;}
+	if (cube[layer][Row][7]){temp = temp + 128;}
 	return temp;
 }
