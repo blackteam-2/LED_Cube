@@ -6,7 +6,7 @@ J McKenna
 
 
 Software
-Program Version: 0.4
+Program Version: 0.6
 Last Update: 1/07/2014
 
 
@@ -15,6 +15,8 @@ Revision Notes:
 0.2 - Implemented Layer update timer
 0.3 - Added effect functions and the rain effect
 0.4 - Added Text scroll effect and related functions, Cleaned up other sections
+0.5 - Added top down effect + tidied up code in effect and background functions
+0.6 - Fixed Shit function, Corrected pin assignments, completed top down effect*, fixed multiplexer, inverted layer latch, Fixed CubeRowToInt() Function        *axis=2 is being a bitch and wont work
 
 
 Hardware
@@ -144,26 +146,29 @@ volatile const unsigned char chracterStorageArray[455] = {
 volatile unsigned char textPath[textPathLength] = {0};
 
 
-//---Cube storage array and update variables---
+//-------Cube storage array and update variables-------
 
 //Cube array [Layer][Row][Bit] - [Y][X][Z]
-boolean cube[8][8][8] = {0}; 
+boolean cube[8][8][8] = {false}; 
 volatile int layer = 1;
 volatile int prevLayer = 0;
 
 
-//---Voltage lim/error---
+//-------Voltage lim/error-------
 
 //Set the voltage lim that will cause a Voltage error
 int battLim = 520;
 
 
-//---General Use Variables---
+//-------General Use Variables-------
 int i = 0;
 int j = 0;
 int k = 0;
 int temp = 0;
+boolean first = false;
 
+//TO FIX GCC SHITNESS
+int helloworld = 4500;
 
 
 //========================================================================
@@ -201,6 +206,19 @@ void setup()
 	//Testing
 	pinMode(LED, OUTPUT);
   
+	delay(1000);
+  
+	//turn all the cube layers off
+	clearAll();
+		
+	//Debugging
+	Serial.begin(9600);
+		
+	//Enable Global interrupts
+	sei();
+  
+	//delay(4000);
+  
 	//
 	//62500 - 0.25Hz
 	//15625 - 1Hz
@@ -210,44 +228,37 @@ void setup()
 	//781 - 20Hz
 	//500 - 31.25Hz
 	//391 - 40Hz
-	layerUpdateTimer(977);
-  
-	//turn all the cube layers off
-	latchLayer(8, true);
-  
-	//Debugging
-	Serial.begin(9600);
-	
-	//Enable Global interrupts 
-	sei();
+	layerUpdateTimer(35);//35
 }
 
 
-//========================================================================
-//==================================MAIN LOOP=============================
-//========================================================================
+//=============================================================================
+//==================================MAIN LOOP==================================
+//=============================================================================
 
 //
 void loop()
 {
+	if (first == false)
+	{
+		clearAll();
+		first = true;
+	}
+	
+	
 	//Serial testing function
 	if(Serial.available() > 0)
 	{
-		i = Serial.read();
-		if((i >= 0) || (i <= 9))
-		{
-			digitalWrite(LED, HIGH);
-	  
-			//latchData(1,i-48);
-			//latchData(i-48,i-48);
-			latchLayer(i-48, false);
-			Serial.print(i-48);
-		}
-		delay(500);
+		int z = Serial.read();
+		digitalWrite(LED, HIGH);
+		
+		//Serial.println(z-48);
+		
 		digitalWrite(LED, LOW);
 	}
   
-  
+	//Effect_rain(1000,800);
+	Effect_topDown(1000,3,0,800);
   
 }
 
@@ -275,7 +286,7 @@ volatile void latchLayer(int Data, bool level)
 
 
 //========================================================================
-//==================================SET I/O===============================
+//================================SET I/O=================================
 //========================================================================
 
 //Set the multiplexer channel
@@ -292,14 +303,14 @@ void setMultiplexer(int pos)
 //Set the common data lines on the data Latch IC's
 void setData(int data)
 {
-	digitalWrite(D0, HIGH && (data & 0x01));
-	digitalWrite(D1, HIGH && (data & 0x02));
-	digitalWrite(D2, HIGH && (data & 0x04));
-	digitalWrite(D3, HIGH && (data & 0x08));
-	digitalWrite(D4, HIGH && (data & 0x10));
-	digitalWrite(D5, HIGH && (data & 0x20));
-	digitalWrite(D6, HIGH && (data & 0x40));
-	digitalWrite(D7, HIGH && (data & 0x80));
+	digitalWrite(D0, !(HIGH && (data & 0x01)));
+	digitalWrite(D1, !(HIGH && (data & 0x02)));
+	digitalWrite(D2, !(HIGH && (data & 0x04)));
+	digitalWrite(D3, !(HIGH && (data & 0x08)));           
+	digitalWrite(D4, !(HIGH && (data & 0x10)));
+	digitalWrite(D5, !(HIGH && (data & 0x20)));
+	digitalWrite(D6, !(HIGH && (data & 0x40)));
+	digitalWrite(D7, !(HIGH && (data & 0x80)));
 }
 
 
@@ -435,7 +446,8 @@ void setLayer(bool data, int Port)
 	}
 }
 
-
+//This will prob be removed
+//used for testing atm
 //========================================================================
 //==============================PATTERN UPDATE============================
 //========================================================================
@@ -487,7 +499,7 @@ void layerUpdateTimer(int reload)
 	TCCR5B |= (1 << WGM52);
 	OCR5A = reload;
 	TIMSK5 |= (1 << OCIE5A);
-	TCCR5B |= (1 << CS50) | (1 << CS52);//clk/2014
+	TCCR5B |= (1 << CS50) | (1 << CS52);//clk/1024
 	
 }
 
@@ -509,7 +521,7 @@ ISR(TIMER5_COMPA_vect)
 	prevLayer = layer;
 	latchLayer(prevLayer, true);
 	
-	//
+	
 	if (layer == 7)
 	{
 		layer = 0;
@@ -520,10 +532,10 @@ ISR(TIMER5_COMPA_vect)
 	}
 	
 	//set data latches 
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int x = 0 ; x < cubeSize ; x++)            
 	{
-		temp = cubeRowToInt(layer,i);
-		latchData(i, temp);
+		temp = cubeRowToInt(layer,x);
+		latchData(x, temp);
 	}
 	
 	
@@ -541,21 +553,31 @@ ISR(TIMER5_COMPA_vect)
 //----------------------------GENERAL USE-----------------------------
 
 
+//   Cord sys
+//
+//   Y
+//   |
+//   :--X
+//  /
+// Z
+//
+// Cube[Y][X][Z]
+//
 // Convert a row of data in the cube array to a BCD number
 int cubeRowToInt(int layer, int Row)
 {
-	temp = 0;
+	int tempV = 0;
 	
-	if (cube[layer][Row][0]){temp = temp + 1;}
-	if (cube[layer][Row][1]){temp = temp + 2;}
-	if (cube[layer][Row][2]){temp = temp + 4;}
-	if (cube[layer][Row][3]){temp = temp + 8;}
-	if (cube[layer][Row][4]){temp = temp + 16;}
-	if (cube[layer][Row][5]){temp = temp + 32;}
-	if (cube[layer][Row][6]){temp = temp + 64;}
-	if (cube[layer][Row][7]){temp = temp + 128;}
+	if (cube[layer][0][Row]){tempV = tempV + 1;}
+	if (cube[layer][1][Row]){tempV = tempV + 2;}
+	if (cube[layer][2][Row]){tempV = tempV + 4;}
+	if (cube[layer][3][Row]){tempV = tempV + 8;}
+	if (cube[layer][4][Row]){tempV = tempV + 16;}
+	if (cube[layer][5][Row]){tempV = tempV + 32;}
+	if (cube[layer][6][Row]){tempV = tempV + 64;}
+	if (cube[layer][7][Row]){tempV = tempV + 128;}
 	
-	return temp;
+	return tempV;
 }
 
 
@@ -608,14 +630,14 @@ void setPixel(int lay, int row, int pix, bool level)
 
 
 //
-bool getPixel(int lay, int row, int pix)
+boolean getPixel(int lay, int row, int pix)
 {
 	return cube[lay][row][pix];
 }
 
 
 //
-bool inRange(int lay, int row, int pix)
+boolean inRange(int lay, int row, int pix)
 {
 	if ((lay >= 0) && (lay < cubeSize) && (row >= 0) && (row < cubeSize) && (pix >= 0) && (pix < cubeSize))
 	{
@@ -647,54 +669,58 @@ void setLine(int axis, int layer, int pos, char data)
 	boolean tempBool = false;
 	
 	//
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int x = 0 ; x < cubeSize ; x++)
 	{
 		if (axis == 0)
 		{
 			tempBool = (data && 0x01);
 			data = data << 1;
-			setPixel(i, layer, pos);
+			setPixel(x, layer, pos, data);
 		}
 		
 		if (axis == 1)
 		{
 			tempBool = (data && 0x01);
 			data = data << 1;
-			setPixel(layer, i, pos);
+			setPixel(layer, x, pos, data);
 		}
 		
 		if (axis == 2)
 		{
 			tempBool = (data && 0x01);
 			data = data << 1;
-			setPixel(layer, pos, i);
+			setPixel(layer, pos, x, data);
 		}	
 	}	
 }
 
 
 //
-void setLayer(int axisa, int numa, boolean level)
+// axis:
+// 0 - Y axis
+// 1 - X axis
+// 2 - Z axis
+void setCubeLayer(int axisa, int numa, boolean level)
 {
 	//
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int x = 0 ; x < cubeSize ; x++)
 	{
 		//
-		for (j = 0 ; j < cubeSize ; j++)
+		for (int z = 0 ; z < cubeSize ; z++)
 		{
 			if (axisa == 0)
 			{
-				setPixel(numa, i, j, level);
+				setPixel(numa, x, z, level);
 			}
 			
 			if (axisa == 1)
 			{
-				setPixel(i, numa, j, level);
+				setPixel(x, numa, z, level);
 			}
 			
 			if (axisa == 2)
 			{
-				setPixel(i, j, numa, level);
+				setPixel(x, z, numa, level);
 			}
 		}
 	}
@@ -704,9 +730,9 @@ void setLayer(int axisa, int numa, boolean level)
 //
 void setAll()
 {
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int x = 0 ; x < cubeSize ; x++)
 	{
-		setLayer(0, i, true);	
+		setCubeLayer(0, x, true);	
 	}
 }
 
@@ -714,9 +740,9 @@ void setAll()
 //
 void clearAll()
 {
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int x = 0 ; x < cubeSize ; x++)
 	{
-		setLayer(0, i, false);
+		setCubeLayer(0, x, false);
 	}
 }
 
@@ -731,55 +757,55 @@ void clearAll()
 // 2 - Z axis
 void shift(int axis, int dir)
 {
-	bool tempPix = false;
+	boolean tempPix = false;
 	int layer1 = 0;
 	int layer2 = 0;
 	
 	//
-	for (i = 0 ; i < cubeSize ; i++)
+	for (int t = 1 ; t < cubeSize ; t++)
 	{
 		//
 		if (dir == 1)
 		{
-			layer1 = i;
+			layer1 = t;
 		} 
 		else
 		{
-			layer1 = (7 - i);
+			layer1 = (7 - t);
 		}
 		
 		//
-		for (j = 0 ; j < cubeSize ; j++)
+		for (int y = 0 ; y < cubeSize ; y++)
 		{
 			//
 			if (dir == 1)
 			{
-				layer2 = layer1 + 1;
+				layer2 = layer1 - 1;
 			} 
 			else
 			{
-				layer2 = layer1 - 1;
+				layer2 = layer1 + 1;
 			}
 			
 			
-			for (k = 0 ; k < cubeSize ; k++)
+			for (int u = 0 ; u < cubeSize ; u++)
 			{
 				if (axis == 0)
 				{
-					tempPix = getPixel(layer1,j,k);
-					setPixel(layer2,j,k,tempPix);
+					tempPix = getPixel(layer1,y,u);
+					setPixel(layer2,y,u,tempPix);
 				}
 				
 				if (axis == 1)
 				{
-					tempPix = getPixel(j,layer1,k);
-					setPixel(j,layer2,k,tempPix);
+					tempPix = getPixel(y,layer1,u);
+					setPixel(y,layer2,u,tempPix);
 				}
 				
 				if (axis == 2)
 				{
-					tempPix = getPixel(j,k,layer1);
-					setPixel(j,k,layer2,tempPix);
+					tempPix = getPixel(y,u,layer1);
+					setPixel(y,u,layer2,tempPix);
 				}
 			}	
 		}
@@ -792,18 +818,18 @@ void getCharPattern(char chr, unsigned char rtnChr[5])
 {
 	chr -= 32;
 	int addr = (int)chr * 5; 
-	int j = 0;
+	int z = 0;
 	
-	for (i = addr ; i < addr+5 ; i++)
+	for (int x = addr ; x < addr+5 ; x++)
 	{
-		rtnChr[j] = chracterStorageArray[i];
-		j++;
+		rtnChr[z] = chracterStorageArray[x];
+		z++;
 	}
 }
 
 
 //
-void addChrToPath(chr inputChr, int pos)
+void addChrToPath(char inputChr, int pos)
 {
 	textPath[pos] = inputChr;
 }
@@ -812,9 +838,9 @@ void addChrToPath(chr inputChr, int pos)
 //
 void incrementPath()
 {
-	for (i = textPathLength - 2 ; i >= 0 ; i--)
+	for (int t = textPathLength - 2 ; t >= 0 ; t--)
 	{ 
-		textPath[i+1] = textPath[i];
+		textPath[t+1] = textPath[t];
 	}
 }
 
@@ -883,40 +909,164 @@ void addPathToCube()
 //----------------------------------EFFECTS----------------------------------
 
 
-void rainEffect(int iterations, int itterationDelay)
+void Effect_rain(int iterations, int itterationDelay)
 {
-	int x = 0;
-	int y = 0;
+	int xx = 0;
+	int yy = 0;
 	
+	//   Cord sys
+	//
+	//   Y
+	//   |
+	//   :--X
+	//  /
+	// Z
+	//
+	// [Y][X][Z]
 	for (i = 0 ; i < iterations ; i++)
 	{
-		//
-		temp = random(10,40);
+		// y axis, Top to bottom
+		shift(0, 1);
 		
 		//
-		for (j = 0 ; j < temp ; j++)
+		setCubeLayer(0,7,false);
+		
+		//
+		int tempVal = random(10,20);
+		
+		//
+		for (j = 0 ; j < tempVal ; j++)
 		{
 			//
-			x = random(0, 7);
-			y = random(0, 7);
+			xx = random(0, 7);
+			yy = random(0, 7);
 			
 			//
-			setPixel(7, x, y, true);
+			setPixel(7, xx, yy, true);
 		}
-		
-		// y axis, Top to bottom
-		shift(0, -1);
 		
 		//Delay from 
 		delay(itterationDelay);
 	}
 	
-	setLayer(0, 7, false);
+	//
+	for(i = 0 ; i < 8 ; i++)
+	{
+		shift(0, 1);
+	}
+	
+	//
+	setCubeLayer(0, 7, false);
 }
 
 
 //
-void textScrollEffect(int iterations, String inputstr, int delayTime)
+void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay)
+{
+	//
+	//y-axis
+	if (axis == 0)
+	{
+		setCubeLayer(0, 7, true);
+	}
+	
+	//x-axis
+	if (axis == 1)
+	{
+		setCubeLayer(1, 7, true);
+	}
+	
+	//z-axis
+	if (axis == 2)
+	{
+		setCubeLayer(2, 7, true);
+	}
+	//
+	delay(itterationDelay);
+	
+	
+	for (j = 0 ; j < iterations ; j++)
+	{
+		
+		for (i = 0 ; i < seperation ; i++)
+		{
+			//y-axis
+			if (axis == 0)
+			{
+				shift(axis,1);
+				setCubeLayer(0, 7, false);
+			}
+			
+			//x-axis
+			if (axis == 1)
+			{
+				shift(axis,1);
+				setCubeLayer(1, 7, false);
+			}
+			
+			//z-axis
+			if (axis == 2)
+			{
+				shift(axis,1);
+				setCubeLayer(2, 7, false);
+			}
+			
+			if (i == (seperation-1))
+			{
+				//y-axis
+				if (axis == 0)
+				{
+					setCubeLayer(0, 7, true);
+				}
+						
+				//x-axis
+				if (axis == 1)
+				{
+					setCubeLayer(1, 7, true);
+				}
+						
+				//z-axis
+				if (axis == 2)
+				{
+					setCubeLayer(2, 7, true);
+				}
+			}
+			
+			
+			delay(itterationDelay);
+		}
+		
+	}
+	
+	if (seperation < 8)
+	{
+		for (i = 8 - seperation ; i < cubeSize ; i++)
+		{
+			//y-axis
+			if (axis == 0)
+			{
+				shift(axis,1);
+			}
+		
+			//x-axis
+			if (axis == 1)
+			{
+				shift(axis,1);
+			}
+		
+			//z-axis
+			if (axis == 2)
+			{
+				shift(axis,1);
+			}
+		}
+	}
+	
+}
+
+
+//
+void Effect_textScroll(int iterations, String inputstr, int delayTime)
 {
 	//
 	String inputString = inputstr;
