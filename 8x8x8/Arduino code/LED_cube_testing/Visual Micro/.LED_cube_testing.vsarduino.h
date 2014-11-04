@@ -15,26 +15,28 @@ extern "C" void __cxa_pure_virtual() {;}
 
 //
 //
-void latchData(int multiplex, int Data);
+void latchData(int multiplex, int LatchData);
 volatile void latchLayer(int Data, bool level);
 void setMultiplexer(int pos);
-void setData(int data);
+void setData(int Ldata);
 void setLayer(bool data, int Port);
 void patternUpdateTimer(int reload);
 void layerUpdateTimer(int reload);
+void serialCheck();
 int cubeRowToInt(int layer, int Row);
 void VoltageCheck();
 void VoltageError();
 void setPixel(int lay, int row, int pix, bool level);
 boolean getPixel(int lay, int row, int pix);
 boolean inRange(int lay, int row, int pix);
-void setLine(int axis, int layer, int pos, char data);
+void setLine(int axis, int layer, int pos, unsigned char data);
 void setCubeLayer(int axisa, int numa, boolean level);
 void setAll();
 void clearAll();
 void shift(int axis, int dir);
 void getCharPattern(char chr, unsigned char rtnChr[5]);
-void addChrToPath(char inputChr, int pos);
+void resetTextPath();
+void addChrToPath(unsigned char inputChr, int pos);
 void incrementPath();
 void addPathToCube();
 void Effect_rain(int iterations, int itterationDelay);

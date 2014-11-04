@@ -6,7 +6,7 @@ J McKenna
 
 
 Software
-Program Version: 0.6
+Program Version: 0.7
 Last Update: 1/07/2014
 
 
@@ -17,7 +17,7 @@ Revision Notes:
 0.4 - Added Text scroll effect and related functions, Cleaned up other sections
 0.5 - Added top down effect + tidied up code in effect and background functions
 0.6 - Fixed Shit function, Corrected pin assignments, completed top down effect*, fixed multiplexer, inverted layer latch, Fixed CubeRowToInt() Function        *axis=2 is being a bitch and wont work
-
+0.7 - WORKING. Effect rain effect text and Effect top down and related func changed and re mostly working
 
 Hardware
 Arduino Board: Mega R3
@@ -61,14 +61,14 @@ Arduino Board: Mega R3
 //---Pin definitions---
 const int LED = 13;
 
-const int D0 = 52;
-const int D1 = 38;
-const int D2 = 42;
-const int D3 = 40;
-const int D4 = 44;
-const int D5 = 46;
-const int D6 = 50;
-const int D7 = 48;
+const int D0 = 48;
+const int D1 = 50;
+const int D2 = 46;
+const int D3 = 44;
+const int D4 = 40;
+const int D5 = 42;
+const int D6 = 38;
+const int D7 = 52;
 
 const int A = 5;
 const int B = 4;
@@ -212,13 +212,16 @@ void setup()
 	clearAll();
 		
 	//Debugging
-	Serial.begin(9600);
+	Serial.begin(57600);
 		
 	//Enable Global interrupts
 	sei();
   
 	//delay(4000);
-  
+    
+	//
+	Serial.println("Cube ready");
+	
 	//
 	//62500 - 0.25Hz
 	//15625 - 1Hz
@@ -228,7 +231,8 @@ void setup()
 	//781 - 20Hz
 	//500 - 31.25Hz
 	//391 - 40Hz
-	layerUpdateTimer(35);//35
+	layerUpdateTimer(40);//35
+	
 }
 
 
@@ -251,15 +255,27 @@ void loop()
 	{
 		int z = Serial.read();
 		digitalWrite(LED, HIGH);
+		if (z-48 == 0)
+		{
+			unsigned char blabla[5];
+			getCharPattern('H',blabla);
+			
+			Serial.println(blabla[0]);
+			Serial.println(blabla[1]);
+			Serial.println(blabla[2]);
+			Serial.println(blabla[3]);
+			Serial.println(blabla[4]);
+		}
 		
-		//Serial.println(z-48);
+		Serial.println(cubeRowToInt(7,(z-48)));
+		Serial.println(z-48);
 		
 		digitalWrite(LED, LOW);
 	}
   
-	//Effect_rain(1000,800);
-	Effect_topDown(1000,3,0,800);
-  
+	//Effect_rain(1000,600);
+	//Effect_topDown(3000,3,0,800);
+	Effect_textScroll(200,"HELLO WORLD", 300);
 }
 
 
@@ -268,10 +284,10 @@ void loop()
 //========================================================================
 
 //
-void latchData(int multiplex, int Data)
+void latchData(int multiplex, int LatchData)
 {
 	digitalWrite(E, HIGH);
-	setData(Data);
+	setData(LatchData);
 	setMultiplexer(multiplex);
 	digitalWrite(E,LOW);
 }
@@ -281,6 +297,7 @@ volatile void latchLayer(int Data, bool level)
 {
 	digitalWrite(RE, HIGH);
 	setLayer(level, Data);
+	delayMicroseconds(2);
 	digitalWrite(RE, LOW);
 }
 
@@ -301,16 +318,16 @@ void setMultiplexer(int pos)
 
 
 //Set the common data lines on the data Latch IC's
-void setData(int data)
+void setData(int Ldata)
 {
-	digitalWrite(D0, !(HIGH && (data & 0x01)));
-	digitalWrite(D1, !(HIGH && (data & 0x02)));
-	digitalWrite(D2, !(HIGH && (data & 0x04)));
-	digitalWrite(D3, !(HIGH && (data & 0x08)));           
-	digitalWrite(D4, !(HIGH && (data & 0x10)));
-	digitalWrite(D5, !(HIGH && (data & 0x20)));
-	digitalWrite(D6, !(HIGH && (data & 0x40)));
-	digitalWrite(D7, !(HIGH && (data & 0x80)));
+	digitalWrite(D0, !(HIGH && (Ldata & 0x01)));
+	digitalWrite(D1, !(HIGH && (Ldata & 0x02)));
+	digitalWrite(D2, !(HIGH && (Ldata & 0x04)));
+	digitalWrite(D3, !(HIGH && (Ldata & 0x08)));
+	digitalWrite(D4, !(HIGH && (Ldata & 0x10)));
+	digitalWrite(D5, !(HIGH && (Ldata & 0x20)));
+	digitalWrite(D6, !(HIGH && (Ldata & 0x40)));
+	digitalWrite(D7, !(HIGH && (Ldata & 0x80)));
 }
 
 
@@ -532,10 +549,10 @@ ISR(TIMER5_COMPA_vect)
 	}
 	
 	//set data latches 
-	for (int x = 0 ; x < cubeSize ; x++)            
+	for (int xxx = 0 ; xxx < cubeSize ; xxx++)            
 	{
-		temp = cubeRowToInt(layer,x);
-		latchData(x, temp);
+		temp = cubeRowToInt(layer,xxx);
+		latchData(xxx, temp);
 	}
 	
 	
@@ -551,6 +568,28 @@ ISR(TIMER5_COMPA_vect)
 
 
 //----------------------------GENERAL USE-----------------------------
+
+
+//
+void serialCheck()
+{
+	
+	if(Serial.available() > 0)
+	{
+		int z = Serial.read();
+		digitalWrite(LED, HIGH);
+		
+		int ftemp = cubeRowToInt(7,(z-48));
+		latchData((z-48), ftemp);
+		
+		Serial.println(temp);
+		Serial.println(z-48);
+		
+		digitalWrite(LED, LOW);
+	}
+	
+}
+
 
 
 //   Cord sys
@@ -663,7 +702,7 @@ boolean inRange(int lay, int row, int pix)
 // axis - 2(Z)
 // layer - Layer
 // pos - Row
-void setLine(int axis, int layer, int pos, char data)
+void setLine(int axis, int layer, int pos, unsigned char data)
 {
 	//
 	boolean tempBool = false;
@@ -673,23 +712,23 @@ void setLine(int axis, int layer, int pos, char data)
 	{
 		if (axis == 0)
 		{
-			tempBool = (data && 0x01);
+			tempBool = true && (data & 0x80);//added true &&
 			data = data << 1;
-			setPixel(x, layer, pos, data);
+			setPixel(x, layer, pos, tempBool);
 		}
 		
 		if (axis == 1)
 		{
-			tempBool = (data && 0x01);
-			data = data << 1;
-			setPixel(layer, x, pos, data);
+			tempBool = (data & 0x01);
+			data = data >> 1;
+			setPixel(layer, x, pos, tempBool);
 		}
 		
 		if (axis == 2)
 		{
-			tempBool = (data && 0x01);
-			data = data << 1;
-			setPixel(layer, pos, x, data);
+			tempBool = (data & 0x01);
+			data = data >> 1;
+			setPixel(layer, pos, x, tempBool);
 		}	
 	}	
 }
@@ -755,6 +794,11 @@ void clearAll()
 // 0 - Y axis
 // 1 - X axis
 // 2 - Z axis
+//
+// dir:
+// 1 = 7 -> 0
+// !1 = 0 -> 7
+//
 void shift(int axis, int dir)
 {
 	boolean tempPix = false;
@@ -827,9 +871,18 @@ void getCharPattern(char chr, unsigned char rtnChr[5])
 	}
 }
 
+//
+void resetTextPath()
+{
+	for (int juce = 0 ; juce < textPathLength ; juce ++)
+	{
+		textPath[juce] = 0;
+	}
+}
+
 
 //
-void addChrToPath(char inputChr, int pos)
+void addChrToPath(unsigned char inputChr, int pos)
 {
 	textPath[pos] = inputChr;
 }
@@ -842,6 +895,7 @@ void incrementPath()
 	{ 
 		textPath[t+1] = textPath[t];
 	}
+	textPath[0] = 0;
 }
 
 
@@ -938,8 +992,8 @@ void Effect_rain(int iterations, int itterationDelay)
 		for (j = 0 ; j < tempVal ; j++)
 		{
 			//
-			xx = random(0, 7);
-			yy = random(0, 7);
+			xx = random(0, 8);
+			yy = random(0, 8);
 			
 			//
 			setPixel(7, xx, yy, true);
@@ -968,6 +1022,7 @@ void Effect_topDown(int iterations, int seperation, int axis, int itterationDela
 	if (axis == 0)
 	{
 		setCubeLayer(0, 7, true);
+		//setPixel(7,0,0,true);
 	}
 	
 	//x-axis
@@ -1032,35 +1087,34 @@ void Effect_topDown(int iterations, int seperation, int axis, int itterationDela
 				}
 			}
 			
-			
 			delay(itterationDelay);
 		}
 		
 	}
 	
-	if (seperation < 8)
-	{
-		for (i = 8 - seperation ; i < cubeSize ; i++)
-		{
-			//y-axis
-			if (axis == 0)
-			{
-				shift(axis,1);
-			}
-		
-			//x-axis
-			if (axis == 1)
-			{
-				shift(axis,1);
-			}
-		
-			//z-axis
-			if (axis == 2)
-			{
-				shift(axis,1);
-			}
-		}
-	}
+	//if (seperation < 8)
+	//{
+		//for (i = 8 - seperation ; i < cubeSize ; i++)
+		//{
+			////y-axis
+			//if (axis == 0)
+			//{
+				//shift(axis,1);
+			//}
+		//
+			////x-axis
+			//if (axis == 1)
+			//{
+				//shift(axis,1);
+			//}
+		//
+			////z-axis
+			//if (axis == 2)
+			//{
+				//shift(axis,1);
+			//}
+		//}
+	//}
 	
 }
 
@@ -1071,6 +1125,9 @@ void Effect_textScroll(int iterations, String inputstr, int delayTime)
 	//
 	String inputString = inputstr;
 	int stringLength = inputstr.length();
+	
+	//
+	resetTextPath();
 	
 	//
 	for (i = 0; i < iterations ; i++)
@@ -1092,12 +1149,21 @@ void Effect_textScroll(int iterations, String inputstr, int delayTime)
 				addPathToCube();
 				delay(delayTime);
 				incrementPath();
+				addPathToCube();
 			}
 			
 			delay(delayTime);
 			incrementPath();
-			
+			addPathToCube();
 		}
+		
+		for (int k = 0 ; k < textPathLength - 4 ; k++)
+		{
+			delay(delayTime);
+			incrementPath();
+			addPathToCube();
+		}
+		
 		
 	}
 }
