@@ -42,6 +42,8 @@ void addPathToCube();
 void Effect_rain(int iterations, int itterationDelay);
 void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay);
 void Effect_textScroll(int iterations, String inputstr, int delayTime);
+void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime);
+void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge);
 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\variants\mega\pins_arduino.h" 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\cores\arduino\arduino.h"

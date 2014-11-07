@@ -6,7 +6,7 @@ J McKenna
 
 
 Software
-Program Version: 0.7
+Program Version: 0.9
 Last Update: 1/07/2014
 
 
@@ -18,6 +18,8 @@ Revision Notes:
 0.5 - Added top down effect + tidied up code in effect and background functions
 0.6 - Fixed Shit function, Corrected pin assignments, completed top down effect*, fixed multiplexer, inverted layer latch, Fixed CubeRowToInt() Function        *axis=2 is being a bitch and wont work
 0.7 - WORKING. Effect rain effect text and Effect top down and related func changed and re mostly working
+0.8 - Added Effect_UpDown_Suspend, fixed z=7 displaying on layer above by adding cubesize+1 in interrupt
+0.9 - Added Effect_ShootRandPixel, Played with time delays on functions
 
 Hardware
 Arduino Board: Mega R3
@@ -56,7 +58,6 @@ Arduino Board: Mega R3
 	Z
 
 */
-
 
 //---Pin definitions---
 const int LED = 13;
@@ -99,7 +100,7 @@ volatile const unsigned char chracterStorageArray[455] = {
 	0x00,0x03,0x00,0x03,0x00, 0x14,0x7f,0x14,0x7f,0x14,	// "#
 	0x24,0x2a,0x7f,0x2a,0x12, 0x23,0x13,0x08,0x64,0x62,	// $%
 	0x36,0x49,0x55,0x22,0x50, 0x00,0x05,0x03,0x00,0x00,	// &'
-	0x00,0x1c,0x22,0x41,0x00, 0x00,0x41,0x22,0x1c,0x00,	// ()
+	0x00,0x1c,0x22,0x41,0x00, 0x00,0x41,0x22,0x1c,0x00,	// ()`
 	0x14,0x08,0x3e,0x08,0x14, 0x08,0x08,0x3e,0x08,0x08,	// *+
 	0x00,0x50,0x30,0x00,0x00, 0x08,0x08,0x08,0x08,0x08,	// ,-
 	0x00,0x60,0x60,0x00,0x00, 0x20,0x10,0x08,0x04,0x02,	// ./
@@ -207,17 +208,12 @@ void setup()
 	pinMode(LED, OUTPUT);
   
 	delay(1000);
-  
-	//turn all the cube layers off
-	clearAll();
 		
 	//Debugging
 	Serial.begin(57600);
 		
 	//Enable Global interrupts
 	sei();
-  
-	//delay(4000);
     
 	//
 	Serial.println("Cube ready");
@@ -233,6 +229,11 @@ void setup()
 	//391 - 40Hz
 	layerUpdateTimer(40);//35
 	
+	//turn all the cube layers off
+	clearAll();
+	
+	//
+	delay(1000);
 }
 
 
@@ -242,40 +243,13 @@ void setup()
 
 //
 void loop()
-{
-	if (first == false)
-	{
-		clearAll();
-		first = true;
-	}
-	
-	
-	//Serial testing function
-	if(Serial.available() > 0)
-	{
-		int z = Serial.read();
-		digitalWrite(LED, HIGH);
-		if (z-48 == 0)
-		{
-			unsigned char blabla[5];
-			getCharPattern('H',blabla);
-			
-			Serial.println(blabla[0]);
-			Serial.println(blabla[1]);
-			Serial.println(blabla[2]);
-			Serial.println(blabla[3]);
-			Serial.println(blabla[4]);
-		}
-		
-		Serial.println(cubeRowToInt(7,(z-48)));
-		Serial.println(z-48);
-		
-		digitalWrite(LED, LOW);
-	}
-  
-	//Effect_rain(1000,600);
-	//Effect_topDown(3000,3,0,800);
-	Effect_textScroll(200,"HELLO WORLD", 300);
+{		
+	//Effect functions
+	Effect_rain(120,100);
+	Effect_topDown(8,2,0,500);
+	Effect_textScroll(2,"Luke i am NOT your father", 160);
+	Effect_UpDown_Suspend(5,120,1000);
+	Effect_ShootRandPixel(120,0,50,30);
 }
 
 
@@ -549,7 +523,7 @@ ISR(TIMER5_COMPA_vect)
 	}
 	
 	//set data latches 
-	for (int xxx = 0 ; xxx < cubeSize ; xxx++)            
+	for (int xxx = 0 ; xxx < cubeSize+1 ; xxx++)            
 	{
 		temp = cubeRowToInt(layer,xxx);
 		latchData(xxx, temp);
@@ -577,15 +551,15 @@ void serialCheck()
 	if(Serial.available() > 0)
 	{
 		int z = Serial.read();
-		digitalWrite(LED, HIGH);
 		
-		int ftemp = cubeRowToInt(7,(z-48));
-		latchData((z-48), ftemp);
+		if (z-48 == 0)
+		{
+			for (int fuckyou = 0 ; fuckyou < cubeSize ; fuckyou++)
+			{
+				Serial.println(fuckyou);
+			}
+		}
 		
-		Serial.println(temp);
-		Serial.println(z-48);
-		
-		digitalWrite(LED, LOW);
 	}
 	
 }
@@ -965,6 +939,9 @@ void addPathToCube()
 
 void Effect_rain(int iterations, int itterationDelay)
 {
+	clearAll();
+	
+	//
 	int xx = 0;
 	int yy = 0;
 	
@@ -1017,6 +994,7 @@ void Effect_rain(int iterations, int itterationDelay)
 //
 void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay)
 {
+	clearAll();
 	//
 	//y-axis
 	if (axis == 0)
@@ -1122,6 +1100,7 @@ void Effect_topDown(int iterations, int seperation, int axis, int itterationDela
 //
 void Effect_textScroll(int iterations, String inputstr, int delayTime)
 {
+	clearAll();
 	//
 	String inputString = inputstr;
 	int stringLength = inputstr.length();
@@ -1165,5 +1144,221 @@ void Effect_textScroll(int iterations, String inputstr, int delayTime)
 		}
 		
 		
+	}
+}
+
+
+//
+void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime)
+{
+	
+	unsigned char Desiredposition[64];
+	int warpfactor;
+	
+	for (warpfactor = 0 ; warpfactor < iterations ; warpfactor++)
+	{
+		clearAll();
+		
+		for (i = 0; i < 64; i++)
+		{
+			Desiredposition[i] = random(0,8);
+		}
+	
+		//fill layer 0
+		setCubeLayer(0, 0, true);
+		delay(SmallDelayTime * 2);
+	
+		//work up with delayTime, stop moving up when current = desired
+		for (i = 1 ; i < cubeSize ; i++)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i <= Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, true);
+					}
+					else
+					{
+						setPixel(i, j, k, false);
+					}
+				
+					if (i-1 != Desiredposition[(j*8)+k])
+					{
+						setPixel(i-1, j, k, false);
+					}
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+		
+		//
+		for (i = 1 ; i < cubeSize ; i++)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i < Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, false);
+					}
+					else
+					{
+						setPixel(i, j, k, true);
+					}
+					
+					setCubeLayer(0,i-1,false);
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+		
+		//work up with delayTime, stop moving up when current = desired
+		for (i = 6 ; i >= 0 ; i--)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i >= Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, true);
+					}
+					else
+					{
+						setPixel(i, j, k, false);
+					}
+					
+					if (i+1 != Desiredposition[(j*8)+k])
+					{
+						setPixel(i+1, j, k, false);
+					}
+				}
+			}
+			
+			//
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+
+		//
+		for (i = 6 ; i >= 0 ; i--)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i > Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, false);
+					}
+					else
+					{
+						setPixel(i, j, k, true);
+					}
+					
+					setCubeLayer(0,i+1,false);
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+	}
+	
+}
+
+//
+void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge)
+{
+	//Clear any previous data in the cube array
+	clearAll();
+	
+	//
+	int shootDirec = 0;
+	int xdir = 0;
+	int ydir = 0;
+	
+	//Set the sides to true, Dependant on axis ? dont like the look initial
+	//setCubeLayer(axis,0,true);
+	//setCubeLayer(axis,7,true);
+	
+	//
+	for (int i = 0 ; i < iterations ; i++)
+	{
+		shootDirec = random(0,2);
+		
+		if (shootDirec == 1)
+		{
+			xdir = random(0,8);
+			ydir = random(0,8);
+			
+			for (j = 1 ; j < cubeSize ; j++)
+			{
+				if (axis == 0)
+				{
+					setPixel(j, xdir, ydir, true);
+					setPixel(j-1, xdir, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 1)
+				{
+					setPixel(xdir, j, ydir, true);
+					setPixel(xdir, j-1, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 2)
+				{
+					setPixel(xdir, ydir, j, true);
+					setPixel(xdir, ydir, j-1, false);
+					delay(delayTimeSmall);
+				}
+			}
+		} 
+		else
+		{
+			xdir = random(0,8);
+			ydir = random(0,8);
+			
+			for (j = 6 ; j >= 0 ; j--)
+			{
+				if (axis == 0)
+				{
+					setPixel(j, xdir, ydir, true);
+					setPixel(j+1, xdir, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 1)
+				{
+					setPixel(xdir, j, ydir, true);
+					setPixel(xdir, j+1, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 2)
+				{
+					setPixel(xdir, ydir, j, true);
+					setPixel(xdir, ydir, j+1, false);
+					delay(delayTimeSmall);
+				}
+			}
+		}
+		
+		//
+		delay(delayTimeLarge);
 	}
 }
