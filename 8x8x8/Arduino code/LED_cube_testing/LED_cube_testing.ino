@@ -5,23 +5,28 @@ J McKenna
 //description
 
 
-Software
-Program Version: 0.9
-Last Update: 1/07/2014
+===Software===
+Program Version: 1.0
+Last Update: 9/11/2014
 
 
 Revision Notes:
-0.1 - Created program
-0.2 - Implemented Layer update timer
-0.3 - Added effect functions and the rain effect
-0.4 - Added Text scroll effect and related functions, Cleaned up other sections
-0.5 - Added top down effect + tidied up code in effect and background functions
-0.6 - Fixed Shit function, Corrected pin assignments, completed top down effect*, fixed multiplexer, inverted layer latch, Fixed CubeRowToInt() Function        *axis=2 is being a bitch and wont work
-0.7 - WORKING. Effect rain effect text and Effect top down and related func changed and re mostly working
-0.8 - Added Effect_UpDown_Suspend, fixed z=7 displaying on layer above by adding cubesize+1 in interrupt
-0.9 - Added Effect_ShootRandPixel, Played with time delays on functions
 
-Hardware
+Ver     Date     Notes
+0.1 - 20/06/14 - Created program
+0.2 - 24/06/14 - Implemented Layer update timer
+0.3 - 24/06/14 - Added effect functions and the rain effect
+0.4 - 01/07/14 - Added Text scroll effect and related functions, Cleaned up other sections
+0.5 - 01/07/14 - Added top down effect + tidied up code in effect and background functions
+0.6 - 26/09/14 - Fixed Shit function, Corrected pin assignments, completed top down effect*, fixed multiplexer, inverted layer latch, Fixed CubeRowToInt() Function        *axis=2 is being a bitch and wont work
+0.7 - 04/11/14 - WORKING. Effect rain effect text and Effect top down and related func changed and re mostly working
+0.8 - 08/11/14 - Added Effect_UpDown_Suspend, fixed z=7 displaying on layer above by adding cubesize+1 in interrupt
+0.9 - 08/11/14 - Added Effect_ShootRandPixel, Played with time delays on functions
+===RELEASE===
+1.0 - 09/11/14 - Added Effect_Fireworks, tidyed up code, Made demo calls and timings 
+
+
+===Hardware===
 Arduino Board: Mega R3
 
 
@@ -58,6 +63,15 @@ Arduino Board: Mega R3
 	Z
 
 */
+
+//
+#include <math.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+
 
 //---Pin definitions---
 const int LED = 13;
@@ -244,12 +258,16 @@ void setup()
 //
 void loop()
 {		
+	
 	//Effect functions
 	Effect_rain(120,100);
-	Effect_topDown(8,2,0,500);
+	Effect_topDown(5,5,0,500);
+	Effect_Fireworks(16, 20, 200);
 	Effect_textScroll(2,"Luke i am NOT your father", 160);
 	Effect_UpDown_Suspend(5,120,1000);
-	Effect_ShootRandPixel(120,0,50,30);
+	Effect_ShootRandPixel(40,0,50,1);
+	Effect_BoxShrinkGrow(2, 2, 2, 200);
+	
 }
 
 
@@ -292,6 +310,8 @@ void setMultiplexer(int pos)
 
 
 //Set the common data lines on the data Latch IC's
+//
+//===Invert the data to account for cube construction being active low===
 void setData(int Ldata)
 {
 	digitalWrite(D0, !(HIGH && (Ldata & 0x01)));
@@ -437,6 +457,7 @@ void setLayer(bool data, int Port)
 	}
 }
 
+
 //This will prob be removed
 //used for testing atm
 //========================================================================
@@ -544,7 +565,7 @@ ISR(TIMER5_COMPA_vect)
 //----------------------------GENERAL USE-----------------------------
 
 
-//
+//Temporary function for getting serial data back
 void serialCheck()
 {
 	
@@ -594,7 +615,7 @@ int cubeRowToInt(int layer, int Row)
 }
 
 
-//Check the batt voltage
+//Check the Bus voltage
 //If outside lim -> voltage error
 void VoltageCheck()
 {
@@ -627,7 +648,7 @@ void VoltageError()
 }
 
 
-//-------------------------------EFFECT FUNCTIONS----------------------------------
+//---------------------------- BACKGROUND EFFECT FUNCTIONS----------------------------------
 
 
 #pragma region Effect Functions
@@ -830,6 +851,54 @@ void shift(int axis, int dir)
 	}
 }
 
+//
+void CheckArgOrder(int in1, int in2, int *out1, int *out2)
+{
+	if (in1 > in2)
+	{
+		int tempVal = in1;
+		in1 = in2;
+		in2 = tempVal;
+	}
+	
+	*out1 = in1;
+	*out2 = in2;
+}
+
+//
+void DrawWireframe(int XPos1, int YPos1, int ZPos1, int XPos2, int YPos2, int ZPos2)
+{
+	//
+	CheckArgOrder(XPos1, XPos2, &XPos1, &XPos2);
+	CheckArgOrder(YPos1, YPos2, &YPos1, &YPos2);
+	CheckArgOrder(ZPos1, ZPos2, &ZPos1, &ZPos2);
+	
+	for (i = XPos1 ; i <= XPos2 ; i++)
+	{
+		setPixel(YPos1, i, ZPos1, true);
+		setPixel(YPos1, i, ZPos2, true);
+		setPixel(YPos2, i, ZPos1, true);
+		setPixel(YPos2, i, ZPos2, true);
+	}
+	
+	for (i = YPos1 ; i <= YPos2 ; i++)
+	{
+		setPixel(i, XPos1, ZPos1, true);
+		setPixel(i, XPos1, ZPos2, true);
+		setPixel(i, XPos2, ZPos1, true);
+		setPixel(i, XPos2, ZPos2, true);
+	}
+	
+	for (i = ZPos1 ; i <= ZPos2 ; i++)
+	{
+		setPixel(YPos1, XPos1, i, true);
+		setPixel(YPos1, XPos2, i, true);
+		setPixel(YPos2, XPos1, i, true);
+		setPixel(YPos2, XPos2, i, true);
+	}
+	
+}
+
 
 //
 void getCharPattern(char chr, unsigned char rtnChr[5])
@@ -883,6 +952,7 @@ void incrementPath()
 //  40-41-42-43-44-45-46-47
 //  48-49-50-51-52-53-54-55
 //  56-57-58-59-60-61-62-63
+//                 <-----START
 //
 //   Cord sys
 //   
@@ -894,7 +964,7 @@ void incrementPath()
 //
 // [Y][X][Z]
 //
-// setLayer(Axis, X, Z, Chr);
+// setLine(Axis, X, Z, Chr);
 void addPathToCube()
 {
 	setLine(0,7,7,textPath[6]);//63
@@ -1070,29 +1140,29 @@ void Effect_topDown(int iterations, int seperation, int axis, int itterationDela
 		
 	}
 	
-	//if (seperation < 8)
-	//{
-		//for (i = 8 - seperation ; i < cubeSize ; i++)
-		//{
-			////y-axis
-			//if (axis == 0)
-			//{
-				//shift(axis,1);
-			//}
-		//
-			////x-axis
-			//if (axis == 1)
-			//{
-				//shift(axis,1);
-			//}
-		//
-			////z-axis
-			//if (axis == 2)
-			//{
-				//shift(axis,1);
-			//}
-		//}
-	//}
+	if (seperation < 8)
+	{
+		for (i = 8 - seperation ; i < cubeSize ; i++)
+		{
+			//y-axis
+			if (axis == 0)
+			{
+				shift(axis,1);
+			}
+		
+			//x-axis
+			if (axis == 1)
+			{
+				shift(axis,1);
+			}
+		
+			//z-axis
+			if (axis == 2)
+			{
+				shift(axis,1);
+			}
+		}
+	}
 	
 }
 
@@ -1131,6 +1201,7 @@ void Effect_textScroll(int iterations, String inputstr, int delayTime)
 				addPathToCube();
 			}
 			
+			//Add space between characters 
 			delay(delayTime);
 			incrementPath();
 			addPathToCube();
@@ -1361,4 +1432,172 @@ void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int del
 		//
 		delay(delayTimeLarge);
 	}
+}
+
+//
+void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime)
+{
+	clearAll();
+	
+	//
+	for (i = 0 ; i < iterations; i++)
+	{
+		//Centre
+		for (j = 3 ; j >= 0 ; j--)
+		{
+			clearAll();
+			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
+			delay(DelayTime);
+		}
+		
+		for (j = 0 ; j < 4 ; j++)
+		{
+			clearAll();
+			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
+			delay(DelayTime);
+		}
+		
+		delay(DelayTime);
+		
+		//0,0,0
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(0, 0, 0, j, j, j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(0, 0, 0, j, j, j);
+			delay(DelayTime);
+		}
+		
+		//0,7,7
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
+			delay(DelayTime);
+		}
+		
+		//7,0,7
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
+			delay(DelayTime);
+		}
+		
+		//7,7,0
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
+			delay(DelayTime);
+		}
+	}
+}
+
+//
+void Effect_Fireworks(int iterations, int n, int delayTime)
+{
+	clearAll();
+
+	int ilk, f, e;
+
+	float origin_x = 3;
+	float origin_y = 3;
+	float origin_z = 3;
+
+	int rand_y, rand_x, rand_z;
+
+	float slowrate, gravity;
+
+	// Particles and their position, x,y,z and their movement, dx, dy, dz
+	float particles[n][6];
+
+	for (ilk = 0; ilk < iterations; ilk++)
+	{
+
+		origin_x = rand() % 4;
+		origin_y = rand() % 4;
+		origin_z = rand() % 2;
+		origin_z += 5;
+		origin_x += 2;
+		origin_y += 2;
+
+		// shoot a particle up in the air
+		for (e = 0; e < origin_z; e++)
+		{
+			setPixel(e, origin_x, origin_y, true);
+			delay(160 * e);
+			clearAll();
+		}
+
+		// Fill particle array
+		for (f = 0; f < n; f++)
+		{
+			// Position
+			particles[f][0] = origin_x;
+			particles[f][1] = origin_y;
+			particles[f][2] = origin_z;
+			
+			rand_x = rand()%200;
+			rand_y = rand()%200;
+			rand_z = rand()%200;
+
+			// Movement
+			particles[f][3] = 1 - (float)rand_x / 100; // dx
+			particles[f][4] = 1 - (float)rand_y / 100; // dy
+			particles[f][5] = 1 - (float)rand_z / 100; // dz
+		}
+
+		// explode
+		for (e = 0; e < 25; e++)
+		{
+			slowrate = 1 + tan((e + 0.1) / 20) * 10;
+			
+			gravity = tan((e + 0.1) / 20) / 2;
+
+			for (f = 0; f < n; f++)
+			{
+				particles[f][0] += particles[f][3] / slowrate;
+				particles[f][1] += particles[f][4] / slowrate;
+				particles[f][2] += particles[f][5] / slowrate;
+				particles[f][2] -= gravity;
+
+				setPixel(particles[f][2],particles[f][0],particles[f][1],true);
+
+
+			}
+
+			delay(delayTime);
+			clearAll();
+		}
+
+	}
+
 }

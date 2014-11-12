@@ -34,6 +34,8 @@ void setCubeLayer(int axisa, int numa, boolean level);
 void setAll();
 void clearAll();
 void shift(int axis, int dir);
+void CheckArgOrder(int in1, int in2, int *out1, int *out2);
+void DrawWireframe(int XPos1, int YPos1, int ZPos1, int XPos2, int YPos2, int ZPos2);
 void getCharPattern(char chr, unsigned char rtnChr[5]);
 void resetTextPath();
 void addChrToPath(unsigned char inputChr, int pos);
@@ -44,6 +46,8 @@ void Effect_topDown(int iterations, int seperation, int axis, int itterationDela
 void Effect_textScroll(int iterations, String inputstr, int delayTime);
 void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime);
 void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge);
+void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime);
+void Effect_Fireworks(int iterations, int n, int delayTime);
 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\variants\mega\pins_arduino.h" 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\cores\arduino\arduino.h"
