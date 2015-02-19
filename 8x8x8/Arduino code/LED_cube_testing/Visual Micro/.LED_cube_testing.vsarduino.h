@@ -22,6 +22,14 @@ void setData(int Ldata);
 void setLayer(bool data, int Port);
 void patternUpdateTimer(int reload);
 void layerUpdateTimer(int reload);
+void Effect_rain(int iterations, int itterationDelay);
+void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay);
+void Effect_textScroll(int iterations, String inputstr, int delayTime);
+void Effect_ShootText(int iterations, String inputStr, int axis, int delayTime, int shiftDelayTime);
+void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime);
+void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge);
+void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime);
+void Effect_Fireworks(int iterations, int n, int delayTime);
 void serialCheck();
 int cubeRowToInt(int layer, int Row);
 void VoltageCheck();
@@ -41,13 +49,8 @@ void resetTextPath();
 void addChrToPath(unsigned char inputChr, int pos);
 void incrementPath();
 void addPathToCube();
-void Effect_rain(int iterations, int itterationDelay);
-void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay);
-void Effect_textScroll(int iterations, String inputstr, int delayTime);
-void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime);
-void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge);
-void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime);
-void Effect_Fireworks(int iterations, int n, int delayTime);
+void addTextToCubeLayer(char inputChar, int axis);
+void Function_Demo();
 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\variants\mega\pins_arduino.h" 
 #include "E:\Dropbox\Projects\arduino-1.0.5\hardware\arduino\cores\arduino\arduino.h"

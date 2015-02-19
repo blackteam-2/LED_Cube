@@ -6,8 +6,8 @@ J McKenna
 
 
 ===Software===
-Program Version: 1.0
-Last Update: 9/11/2014
+Program Version: 1.1
+Last Update: 19/02/2015
 
 
 Revision Notes:
@@ -24,6 +24,7 @@ Ver     Date     Notes
 0.9 - 08/11/14 - Added Effect_ShootRandPixel, Played with time delays on functions
 ===RELEASE===
 1.0 - 09/11/14 - Added Effect_Fireworks, tidyed up code, Made demo calls and timings 
+1.1 - 19/02/15 - Added EffectShootText + addTextToCubeLayer + Function_Demo, fixed EffectBoxGrow iterations + loop endings, Moved the demo code to Function_demo and called function in main to tidy code
 
 
 ===Hardware===
@@ -259,14 +260,7 @@ void setup()
 void loop()
 {		
 	
-	//Effect functions
-	Effect_rain(120,100);
-	Effect_topDown(5,5,0,500);
-	Effect_Fireworks(16, 20, 200);
-	Effect_textScroll(2,"Luke i am NOT your father", 160);
-	Effect_UpDown_Suspend(5,120,1000);
-	Effect_ShootRandPixel(40,0,50,1);
-	Effect_BoxShrinkGrow(2, 2, 2, 200);
+	Function_Demo();
 	
 }
 
@@ -458,8 +452,11 @@ void setLayer(bool data, int Port)
 }
 
 
-//This will prob be removed
-//used for testing atm
+// ===TESTING FUNCTION===
+//
+// Will prob use for V rail monitoring in the future
+// Leaving the code here for now as im lazy and cant be asked re-writing it later
+//
 //========================================================================
 //==============================PATTERN UPDATE============================
 //========================================================================
@@ -553,6 +550,660 @@ ISR(TIMER5_COMPA_vect)
 	
 	//turn current layer on
 	latchLayer(layer, false);
+}
+
+
+
+
+//========================================================================
+//=============================EFFECT FUNCTIONS===========================
+//========================================================================
+
+
+void Effect_rain(int iterations, int itterationDelay)
+{
+	clearAll();
+	
+	//
+	int xx = 0;
+	int yy = 0;
+	
+	//   Cord sys
+	//
+	//   Y
+	//   |
+	//   :--X
+	//  /
+	// Z
+	//
+	// [Y][X][Z]
+	for (i = 0 ; i < iterations ; i++)
+	{
+		// y axis, Top to bottom
+		shift(0, 1);
+		
+		//
+		setCubeLayer(0,7,false);
+		
+		//
+		int tempVal = random(10,20);
+		
+		//
+		for (j = 0 ; j < tempVal ; j++)
+		{
+			//
+			xx = random(0, 8);
+			yy = random(0, 8);
+			
+			//
+			setPixel(7, xx, yy, true);
+		}
+		
+		//Delay from
+		delay(itterationDelay);
+	}
+	
+	//
+	for(i = 0 ; i < 8 ; i++)
+	{
+		shift(0, 1);
+	}
+	
+	//
+	setCubeLayer(0, 7, false);
+}
+
+
+//
+void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay)
+{
+	clearAll();
+	//
+	//y-axis
+	if (axis == 0)
+	{
+		setCubeLayer(0, 7, true);
+		//setPixel(7,0,0,true);
+	}
+	
+	//x-axis
+	if (axis == 1)
+	{
+		setCubeLayer(1, 7, true);
+	}
+	
+	//z-axis
+	if (axis == 2)
+	{
+		setCubeLayer(2, 7, true);
+	}
+	//
+	delay(itterationDelay);
+	
+	
+	for (j = 0 ; j < iterations ; j++)
+	{
+		
+		for (i = 0 ; i < seperation ; i++)
+		{
+			//y-axis
+			if (axis == 0)
+			{
+				shift(axis,1);
+				setCubeLayer(0, 7, false);
+			}
+			
+			//x-axis
+			if (axis == 1)
+			{
+				shift(axis,1);
+				setCubeLayer(1, 7, false);
+			}
+			
+			//z-axis
+			if (axis == 2)
+			{
+				shift(axis,1);
+				setCubeLayer(2, 7, false);
+			}
+			
+			if (i == (seperation-1))
+			{
+				//y-axis
+				if (axis == 0)
+				{
+					setCubeLayer(0, 7, true);
+				}
+				
+				//x-axis
+				if (axis == 1)
+				{
+					setCubeLayer(1, 7, true);
+				}
+				
+				//z-axis
+				if (axis == 2)
+				{
+					setCubeLayer(2, 7, true);
+				}
+			}
+			
+			delay(itterationDelay);
+		}
+		
+	}
+	
+	if (seperation < 8)
+	{
+		for (i = 8 - seperation ; i < cubeSize ; i++)
+		{
+			//y-axis
+			if (axis == 0)
+			{
+				shift(axis,1);
+			}
+			
+			//x-axis
+			if (axis == 1)
+			{
+				shift(axis,1);
+			}
+			
+			//z-axis
+			if (axis == 2)
+			{
+				shift(axis,1);
+			}
+		}
+	}
+	
+}
+
+
+//
+void Effect_textScroll(int iterations, String inputstr, int delayTime)
+{
+	clearAll();
+	//
+	String inputString = inputstr;
+	int stringLength = inputstr.length();
+	
+	//
+	resetTextPath();
+	
+	//
+	for (i = 0; i < iterations ; i++)
+	{
+		
+		//
+		for (j = 0 ; j < stringLength ; j++)
+		{
+			//
+			char currentChr = inputString[j];
+			unsigned char chrPattern[5] = {0};
+			getCharPattern(currentChr, chrPattern);
+			
+			//
+			for (k = 0 ; k < 5 ; k++)
+			{
+				//
+				addChrToPath(chrPattern[k], 0);
+				addPathToCube();
+				delay(delayTime);
+				incrementPath();
+				addPathToCube();
+			}
+			
+			//Add space between characters
+			delay(delayTime);
+			incrementPath();
+			addPathToCube();
+		}
+		
+		for (int k = 0 ; k < textPathLength - 4 ; k++)
+		{
+			delay(delayTime);
+			incrementPath();
+			addPathToCube();
+		}
+		
+		
+	}
+}
+
+
+//
+// Cord sys
+//
+//   Y
+//   |
+//   :--X
+//  /
+// Z
+//
+// [Y][X][Z]
+void Effect_ShootText(int iterations, String inputStr, int axis, int delayTime, int shiftDelayTime)
+{
+	//
+	clearAll();
+	
+	String inputString = inputStr;
+	int stringLength = inputStr.length();
+	
+	for (i = 0 ; i < iterations ; i++)
+	{
+		for (j = 0 ; j < stringLength ; j++)
+		{
+			//get the current char to be displayed
+			char currentChr = inputString[j];
+			
+			//Clear the Top letter still in the cube
+			setCubeLayer(axis, 7, false);
+			
+			//add text to the cube
+			addTextToCubeLayer(currentChr, axis);
+			
+			//delay for position 0
+			delay(shiftDelayTime);
+			
+			//move text through the cube
+			for (k = 1 ; k < cubeSize ; k++)
+			{
+				shift(axis, -1);
+				setCubeLayer(axis, k-1, false);
+				delay(shiftDelayTime);
+			}
+			
+			delay(delayTime);
+		}
+	}
+	
+}
+
+
+
+//
+void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime)
+{
+	
+	unsigned char Desiredposition[64];
+	int warpfactor;
+	
+	for (warpfactor = 0 ; warpfactor < iterations ; warpfactor++)
+	{
+		clearAll();
+		
+		for (i = 0; i < 64; i++)
+		{
+			Desiredposition[i] = random(0,8);
+		}
+		
+		//fill layer 0
+		setCubeLayer(0, 0, true);
+		delay(SmallDelayTime * 2);
+		
+		//work up with delayTime, stop moving up when current = desired
+		for (i = 1 ; i < cubeSize ; i++)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i <= Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, true);
+					}
+					else
+					{
+						setPixel(i, j, k, false);
+					}
+					
+					if (i-1 != Desiredposition[(j*8)+k])
+					{
+						setPixel(i-1, j, k, false);
+					}
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+		
+		//
+		for (i = 1 ; i < cubeSize ; i++)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i < Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, false);
+					}
+					else
+					{
+						setPixel(i, j, k, true);
+					}
+					
+					setCubeLayer(0,i-1,false);
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+		
+		//work up with delayTime, stop moving up when current = desired
+		for (i = 6 ; i >= 0 ; i--)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i >= Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, true);
+					}
+					else
+					{
+						setPixel(i, j, k, false);
+					}
+					
+					if (i+1 != Desiredposition[(j*8)+k])
+					{
+						setPixel(i+1, j, k, false);
+					}
+				}
+			}
+			
+			//
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+
+		//
+		for (i = 6 ; i >= 0 ; i--)
+		{
+			for (j = 0 ; j < cubeSize ; j++)
+			{
+				for (k = 0 ; k < cubeSize ; k++)
+				{
+					if (i > Desiredposition[(j*8)+k])
+					{
+						setPixel(i, j ,k, false);
+					}
+					else
+					{
+						setPixel(i, j, k, true);
+					}
+					
+					setCubeLayer(0,i+1,false);
+				}
+			}
+			delay(SmallDelayTime);
+		}
+		
+		//long delay
+		delay(LongDelayTime);
+	}
+	
+}
+
+//
+void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge)
+{
+	//Clear any previous data in the cube array
+	clearAll();
+	
+	//
+	int shootDirec = 0;
+	int xdir = 0;
+	int ydir = 0;
+	
+	//Set the sides to true, Dependant on axis ? dont like the look initial
+	//setCubeLayer(axis,0,true);
+	//setCubeLayer(axis,7,true);
+	
+	//
+	for (int i = 0 ; i < iterations ; i++)
+	{
+		shootDirec = random(0,2);
+		
+		if (shootDirec == 1)
+		{
+			xdir = random(0,8);
+			ydir = random(0,8);
+			
+			for (j = 1 ; j < cubeSize ; j++)
+			{
+				if (axis == 0)
+				{
+					setPixel(j, xdir, ydir, true);
+					setPixel(j-1, xdir, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 1)
+				{
+					setPixel(xdir, j, ydir, true);
+					setPixel(xdir, j-1, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 2)
+				{
+					setPixel(xdir, ydir, j, true);
+					setPixel(xdir, ydir, j-1, false);
+					delay(delayTimeSmall);
+				}
+			}
+		}
+		else
+		{
+			xdir = random(0,8);
+			ydir = random(0,8);
+			
+			for (j = 6 ; j >= 0 ; j--)
+			{
+				if (axis == 0)
+				{
+					setPixel(j, xdir, ydir, true);
+					setPixel(j+1, xdir, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 1)
+				{
+					setPixel(xdir, j, ydir, true);
+					setPixel(xdir, j+1, ydir, false);
+					delay(delayTimeSmall);
+				}
+				
+				if (axis == 2)
+				{
+					setPixel(xdir, ydir, j, true);
+					setPixel(xdir, ydir, j+1, false);
+					delay(delayTimeSmall);
+				}
+			}
+		}
+		
+		//
+		delay(delayTimeLarge);
+	}
+}
+
+//
+void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime)
+{
+	clearAll();
+	
+	//
+	int iter = 0;
+	//
+	for (iter = 0 ; iter < iterations; iter++)
+	{
+		//Centre
+		for (j = 3 ; j >= 0 ; j--)
+		{
+			clearAll();
+			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
+			delay(DelayTime);
+		}
+		
+		for (j = 0 ; j < 4 ; j++)
+		{
+			clearAll();
+			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
+			delay(DelayTime);
+		}
+		
+		
+		//0,0,0
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(0, 0, 0, j, j, j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(0, 0, 0, j, j, j);
+			delay(DelayTime);
+		}
+		
+		//0,7,7
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
+			delay(DelayTime);
+		}
+		
+		//7,0,7
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j < 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
+			delay(DelayTime);
+		}
+		
+		//7,7,0
+		for (j = 7 ; j >= 1 ; j--)
+		{
+			clearAll();
+			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
+			delay(DelayTime);
+		}
+		
+		for (j = 1 ; j <= 7 ; j++)
+		{
+			clearAll();
+			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
+			delay(DelayTime);
+		}
+	}
+}
+
+//
+void Effect_Fireworks(int iterations, int n, int delayTime)
+{
+	clearAll();
+
+	int ilk, f, e;
+
+	float origin_x = 3;
+	float origin_y = 3;
+	float origin_z = 3;
+
+	int rand_y, rand_x, rand_z;
+
+	float slowrate, gravity;
+
+	// Particles and their position, x,y,z and their movement, dx, dy, dz
+	float particles[n][6];
+
+	for (ilk = 0; ilk < iterations; ilk++)
+	{
+
+		origin_x = rand() % 4;
+		origin_y = rand() % 4;
+		origin_z = rand() % 2;
+		origin_z += 5;
+		origin_x += 2;
+		origin_y += 2;
+
+		// shoot a particle up in the air
+		for (e = 0; e < origin_z; e++)
+		{
+			setPixel(e, origin_x, origin_y, true);
+			delay(160 * e);
+			clearAll();
+		}
+
+		// Fill particle array
+		for (f = 0; f < n; f++)
+		{
+			// Position
+			particles[f][0] = origin_x;
+			particles[f][1] = origin_y;
+			particles[f][2] = origin_z;
+			
+			rand_x = rand()%200;
+			rand_y = rand()%200;
+			rand_z = rand()%200;
+
+			// Movement
+			particles[f][3] = 1 - (float)rand_x / 100; // dx
+			particles[f][4] = 1 - (float)rand_y / 100; // dy
+			particles[f][5] = 1 - (float)rand_z / 100; // dz
+		}
+
+		// explode
+		for (e = 0; e < 25; e++)
+		{
+			slowrate = 1 + tan((e + 0.1) / 20) * 10;
+			
+			gravity = tan((e + 0.1) / 20) / 2;
+
+			for (f = 0; f < n; f++)
+			{
+				particles[f][0] += particles[f][3] / slowrate;
+				particles[f][1] += particles[f][4] / slowrate;
+				particles[f][2] += particles[f][5] / slowrate;
+				particles[f][2] -= gravity;
+
+				setPixel(particles[f][2],particles[f][0],particles[f][1],true);
+
+
+			}
+
+			delay(delayTime);
+			clearAll();
+		}
+
+	}
+
 }
 
 
@@ -721,7 +1372,7 @@ void setLine(int axis, int layer, int pos, unsigned char data)
 		
 		if (axis == 2)
 		{
-			tempBool = (data & 0x01);
+			tempBool = true && (data & 0x01);
 			data = data >> 1;
 			setPixel(layer, pos, x, tempBool);
 		}	
@@ -1001,603 +1652,67 @@ void addPathToCube()
 }
 
 
+
+// axis:
+// 0 - Y axis
+// 1 - X axis
+// 2 - Z axis
+//
+void addTextToCubeLayer(char inputChar, int axis)
+{
+	unsigned char chrPattern[5] = {0};
+	getCharPattern(inputChar, chrPattern);
+	
+	int loopCount = 0;
+	
+	switch(axis)
+	{
+		// y-axis
+		case 0:
+			for (loopCount = 0 ; loopCount < 5 ; loopCount++)
+			{
+				setLine(2, 0, loopCount + 1, chrPattern[loopCount]);	
+			}
+		break;
+		
+		//x-axis
+		case 1:
+			for (loopCount = 0 ; loopCount < 5 ; loopCount++)
+			{
+				setLine(0, 0, loopCount +1 , chrPattern[ 4 - loopCount]);
+			}
+		break;
+		
+		//z-axis
+		case 2:
+			for (loopCount = 0 ; loopCount < 5 ; loopCount++)
+			{
+				setLine(0, loopCount + 1, 0, chrPattern[loopCount]);
+			}
+		break;
+		
+		default:
+		//FUUUCCCCKKKKK
+		break;
+	}
+}
+
+
 #pragma endregion Effect Functions
 
-
-//----------------------------------EFFECTS----------------------------------
-
-
-void Effect_rain(int iterations, int itterationDelay)
+void Function_Demo()
 {
-	clearAll();
-	
-	//
-	int xx = 0;
-	int yy = 0;
-	
-	//   Cord sys
-	//
-	//   Y
-	//   |
-	//   :--X
-	//  /
-	// Z
-	//
-	// [Y][X][Z]
-	for (i = 0 ; i < iterations ; i++)
-	{
-		// y axis, Top to bottom
-		shift(0, 1);
-		
-		//
-		setCubeLayer(0,7,false);
-		
-		//
-		int tempVal = random(10,20);
-		
-		//
-		for (j = 0 ; j < tempVal ; j++)
-		{
-			//
-			xx = random(0, 8);
-			yy = random(0, 8);
-			
-			//
-			setPixel(7, xx, yy, true);
-		}
-		
-		//Delay from 
-		delay(itterationDelay);
-	}
-	
-	//
-	for(i = 0 ; i < 8 ; i++)
-	{
-		shift(0, 1);
-	}
-	
-	//
-	setCubeLayer(0, 7, false);
+	//Effect functions
+	Effect_rain(120,100);
+	Effect_topDown(5,3,0,500);
+	Effect_ShootText(1,"9876543210", 2, 600, 50);
+	Effect_Fireworks(10, 20, 200);
+	Effect_textScroll(2,"This is An LED Cube /?@#$", 160);
+	Effect_UpDown_Suspend(5,120,1000);
+	Effect_ShootRandPixel(40,0,50,1);
+	Effect_ShootText(1, "ABCDEFGHIJ", 2, 180, 50);
+	Effect_ShootText(1, "KLMNOPQRSTUVWX", 1, 180, 50);
+	Effect_ShootText(1, "YZ1234567890", 0, 180, 50);
+	Effect_BoxShrinkGrow(2, 2, 2, 200);
 }
 
-
-//
-void Effect_topDown(int iterations, int seperation, int axis, int itterationDelay)
-{
-	clearAll();
-	//
-	//y-axis
-	if (axis == 0)
-	{
-		setCubeLayer(0, 7, true);
-		//setPixel(7,0,0,true);
-	}
-	
-	//x-axis
-	if (axis == 1)
-	{
-		setCubeLayer(1, 7, true);
-	}
-	
-	//z-axis
-	if (axis == 2)
-	{
-		setCubeLayer(2, 7, true);
-	}
-	//
-	delay(itterationDelay);
-	
-	
-	for (j = 0 ; j < iterations ; j++)
-	{
-		
-		for (i = 0 ; i < seperation ; i++)
-		{
-			//y-axis
-			if (axis == 0)
-			{
-				shift(axis,1);
-				setCubeLayer(0, 7, false);
-			}
-			
-			//x-axis
-			if (axis == 1)
-			{
-				shift(axis,1);
-				setCubeLayer(1, 7, false);
-			}
-			
-			//z-axis
-			if (axis == 2)
-			{
-				shift(axis,1);
-				setCubeLayer(2, 7, false);
-			}
-			
-			if (i == (seperation-1))
-			{
-				//y-axis
-				if (axis == 0)
-				{
-					setCubeLayer(0, 7, true);
-				}
-						
-				//x-axis
-				if (axis == 1)
-				{
-					setCubeLayer(1, 7, true);
-				}
-						
-				//z-axis
-				if (axis == 2)
-				{
-					setCubeLayer(2, 7, true);
-				}
-			}
-			
-			delay(itterationDelay);
-		}
-		
-	}
-	
-	if (seperation < 8)
-	{
-		for (i = 8 - seperation ; i < cubeSize ; i++)
-		{
-			//y-axis
-			if (axis == 0)
-			{
-				shift(axis,1);
-			}
-		
-			//x-axis
-			if (axis == 1)
-			{
-				shift(axis,1);
-			}
-		
-			//z-axis
-			if (axis == 2)
-			{
-				shift(axis,1);
-			}
-		}
-	}
-	
-}
-
-
-//
-void Effect_textScroll(int iterations, String inputstr, int delayTime)
-{
-	clearAll();
-	//
-	String inputString = inputstr;
-	int stringLength = inputstr.length();
-	
-	//
-	resetTextPath();
-	
-	//
-	for (i = 0; i < iterations ; i++)
-	{
-		
-		//
-		for (j = 0 ; j < stringLength ; j++)
-		{
-			//
-			char currentChr = inputString[j];
-			unsigned char chrPattern[5] = {0};
-			getCharPattern(currentChr, chrPattern);
-			
-			//
-			for (k = 0 ; k < 5 ; k++)
-			{
-				//
-				addChrToPath(chrPattern[k], 0);
-				addPathToCube();
-				delay(delayTime);
-				incrementPath();
-				addPathToCube();
-			}
-			
-			//Add space between characters 
-			delay(delayTime);
-			incrementPath();
-			addPathToCube();
-		}
-		
-		for (int k = 0 ; k < textPathLength - 4 ; k++)
-		{
-			delay(delayTime);
-			incrementPath();
-			addPathToCube();
-		}
-		
-		
-	}
-}
-
-
-//
-void Effect_UpDown_Suspend(int iterations, int SmallDelayTime, int LongDelayTime)
-{
-	
-	unsigned char Desiredposition[64];
-	int warpfactor;
-	
-	for (warpfactor = 0 ; warpfactor < iterations ; warpfactor++)
-	{
-		clearAll();
-		
-		for (i = 0; i < 64; i++)
-		{
-			Desiredposition[i] = random(0,8);
-		}
-	
-		//fill layer 0
-		setCubeLayer(0, 0, true);
-		delay(SmallDelayTime * 2);
-	
-		//work up with delayTime, stop moving up when current = desired
-		for (i = 1 ; i < cubeSize ; i++)
-		{
-			for (j = 0 ; j < cubeSize ; j++)
-			{
-				for (k = 0 ; k < cubeSize ; k++)
-				{
-					if (i <= Desiredposition[(j*8)+k])
-					{
-						setPixel(i, j ,k, true);
-					}
-					else
-					{
-						setPixel(i, j, k, false);
-					}
-				
-					if (i-1 != Desiredposition[(j*8)+k])
-					{
-						setPixel(i-1, j, k, false);
-					}
-				}
-			}
-			delay(SmallDelayTime);
-		}
-		
-		//long delay
-		delay(LongDelayTime);
-		
-		//
-		for (i = 1 ; i < cubeSize ; i++)
-		{
-			for (j = 0 ; j < cubeSize ; j++)
-			{
-				for (k = 0 ; k < cubeSize ; k++)
-				{
-					if (i < Desiredposition[(j*8)+k])
-					{
-						setPixel(i, j ,k, false);
-					}
-					else
-					{
-						setPixel(i, j, k, true);
-					}
-					
-					setCubeLayer(0,i-1,false);
-				}
-			}
-			delay(SmallDelayTime);
-		}
-		
-		//long delay
-		delay(LongDelayTime);
-		
-		//work up with delayTime, stop moving up when current = desired
-		for (i = 6 ; i >= 0 ; i--)
-		{
-			for (j = 0 ; j < cubeSize ; j++)
-			{
-				for (k = 0 ; k < cubeSize ; k++)
-				{
-					if (i >= Desiredposition[(j*8)+k])
-					{
-						setPixel(i, j ,k, true);
-					}
-					else
-					{
-						setPixel(i, j, k, false);
-					}
-					
-					if (i+1 != Desiredposition[(j*8)+k])
-					{
-						setPixel(i+1, j, k, false);
-					}
-				}
-			}
-			
-			//
-			delay(SmallDelayTime);
-		}
-		
-		//long delay
-		delay(LongDelayTime);
-
-		//
-		for (i = 6 ; i >= 0 ; i--)
-		{
-			for (j = 0 ; j < cubeSize ; j++)
-			{
-				for (k = 0 ; k < cubeSize ; k++)
-				{
-					if (i > Desiredposition[(j*8)+k])
-					{
-						setPixel(i, j ,k, false);
-					}
-					else
-					{
-						setPixel(i, j, k, true);
-					}
-					
-					setCubeLayer(0,i+1,false);
-				}
-			}
-			delay(SmallDelayTime);
-		}
-		
-		//long delay
-		delay(LongDelayTime);
-	}
-	
-}
-
-//
-void Effect_ShootRandPixel(int iterations, int axis, int delayTimeSmall, int delayTimeLarge)
-{
-	//Clear any previous data in the cube array
-	clearAll();
-	
-	//
-	int shootDirec = 0;
-	int xdir = 0;
-	int ydir = 0;
-	
-	//Set the sides to true, Dependant on axis ? dont like the look initial
-	//setCubeLayer(axis,0,true);
-	//setCubeLayer(axis,7,true);
-	
-	//
-	for (int i = 0 ; i < iterations ; i++)
-	{
-		shootDirec = random(0,2);
-		
-		if (shootDirec == 1)
-		{
-			xdir = random(0,8);
-			ydir = random(0,8);
-			
-			for (j = 1 ; j < cubeSize ; j++)
-			{
-				if (axis == 0)
-				{
-					setPixel(j, xdir, ydir, true);
-					setPixel(j-1, xdir, ydir, false);
-					delay(delayTimeSmall);
-				}
-				
-				if (axis == 1)
-				{
-					setPixel(xdir, j, ydir, true);
-					setPixel(xdir, j-1, ydir, false);
-					delay(delayTimeSmall);
-				}
-				
-				if (axis == 2)
-				{
-					setPixel(xdir, ydir, j, true);
-					setPixel(xdir, ydir, j-1, false);
-					delay(delayTimeSmall);
-				}
-			}
-		} 
-		else
-		{
-			xdir = random(0,8);
-			ydir = random(0,8);
-			
-			for (j = 6 ; j >= 0 ; j--)
-			{
-				if (axis == 0)
-				{
-					setPixel(j, xdir, ydir, true);
-					setPixel(j+1, xdir, ydir, false);
-					delay(delayTimeSmall);
-				}
-				
-				if (axis == 1)
-				{
-					setPixel(xdir, j, ydir, true);
-					setPixel(xdir, j+1, ydir, false);
-					delay(delayTimeSmall);
-				}
-				
-				if (axis == 2)
-				{
-					setPixel(xdir, ydir, j, true);
-					setPixel(xdir, ydir, j+1, false);
-					delay(delayTimeSmall);
-				}
-			}
-		}
-		
-		//
-		delay(delayTimeLarge);
-	}
-}
-
-//
-void Effect_BoxShrinkGrow(int iterations, int Dir, int type, int DelayTime)
-{
-	clearAll();
-	
-	//
-	for (i = 0 ; i < iterations; i++)
-	{
-		//Centre
-		for (j = 3 ; j >= 0 ; j--)
-		{
-			clearAll();
-			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
-			delay(DelayTime);
-		}
-		
-		for (j = 0 ; j < 4 ; j++)
-		{
-			clearAll();
-			DrawWireframe(3-j, 3-j, 3-j, 4+j, 4+j, 4+j);
-			delay(DelayTime);
-		}
-		
-		delay(DelayTime);
-		
-		//0,0,0
-		for (j = 7 ; j >= 1 ; j--)
-		{
-			clearAll();
-			DrawWireframe(0, 0, 0, j, j, j);
-			delay(DelayTime);
-		}
-		
-		for (j = 1 ; j < 7 ; j++)
-		{
-			clearAll();
-			DrawWireframe(0, 0, 0, j, j, j);
-			delay(DelayTime);
-		}
-		
-		//0,7,7
-		for (j = 7 ; j >= 1 ; j--)
-		{
-			clearAll();
-			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
-			delay(DelayTime);
-		}
-		
-		for (j = 1 ; j < 7 ; j++)
-		{
-			clearAll();
-			DrawWireframe(7, 0, 7, 7-j, j, 7-j);
-			delay(DelayTime);
-		}
-		
-		//7,0,7
-		for (j = 7 ; j >= 1 ; j--)
-		{
-			clearAll();
-			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
-			delay(DelayTime);
-		}
-		
-		for (j = 1 ; j < 7 ; j++)
-		{
-			clearAll();
-			DrawWireframe(0, 7, 7, j, 7-j, 7-j);
-			delay(DelayTime);
-		}
-		
-		//7,7,0
-		for (j = 7 ; j >= 1 ; j--)
-		{
-			clearAll();
-			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
-			delay(DelayTime);
-		}
-		
-		for (j = 1 ; j < 7 ; j++)
-		{
-			clearAll();
-			DrawWireframe(7, 7, 0, 7-j, 7-j, j);
-			delay(DelayTime);
-		}
-	}
-}
-
-//
-void Effect_Fireworks(int iterations, int n, int delayTime)
-{
-	clearAll();
-
-	int ilk, f, e;
-
-	float origin_x = 3;
-	float origin_y = 3;
-	float origin_z = 3;
-
-	int rand_y, rand_x, rand_z;
-
-	float slowrate, gravity;
-
-	// Particles and their position, x,y,z and their movement, dx, dy, dz
-	float particles[n][6];
-
-	for (ilk = 0; ilk < iterations; ilk++)
-	{
-
-		origin_x = rand() % 4;
-		origin_y = rand() % 4;
-		origin_z = rand() % 2;
-		origin_z += 5;
-		origin_x += 2;
-		origin_y += 2;
-
-		// shoot a particle up in the air
-		for (e = 0; e < origin_z; e++)
-		{
-			setPixel(e, origin_x, origin_y, true);
-			delay(160 * e);
-			clearAll();
-		}
-
-		// Fill particle array
-		for (f = 0; f < n; f++)
-		{
-			// Position
-			particles[f][0] = origin_x;
-			particles[f][1] = origin_y;
-			particles[f][2] = origin_z;
-			
-			rand_x = rand()%200;
-			rand_y = rand()%200;
-			rand_z = rand()%200;
-
-			// Movement
-			particles[f][3] = 1 - (float)rand_x / 100; // dx
-			particles[f][4] = 1 - (float)rand_y / 100; // dy
-			particles[f][5] = 1 - (float)rand_z / 100; // dz
-		}
-
-		// explode
-		for (e = 0; e < 25; e++)
-		{
-			slowrate = 1 + tan((e + 0.1) / 20) * 10;
-			
-			gravity = tan((e + 0.1) / 20) / 2;
-
-			for (f = 0; f < n; f++)
-			{
-				particles[f][0] += particles[f][3] / slowrate;
-				particles[f][1] += particles[f][4] / slowrate;
-				particles[f][2] += particles[f][5] / slowrate;
-				particles[f][2] -= gravity;
-
-				setPixel(particles[f][2],particles[f][0],particles[f][1],true);
-
-
-			}
-
-			delay(delayTime);
-			clearAll();
-		}
-
-	}
-
-}
